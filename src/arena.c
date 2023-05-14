@@ -1,13 +1,12 @@
 
-
 #include "arena.h"
 #include "alloc_backend.h"
 
 #include <errno.h>
 #include <unistd.h>
-#include <string.h>
 
 #define ARENA_SIZE ((size_t)(128*sysconf(_SC_PAGE_SIZE)))
+
 
 /*
  * Allocates and returns new arena
@@ -21,15 +20,15 @@ struct arena* arena_new()
     if (p == NULL)
         return NULL;
 
-    struct arena a = {
+    arena_t *a = (arena_t*)p;
+
+    *a = (arena_t){
         .begin = p + sizeof(struct arena),
         .next  = p + sizeof(struct arena),
         .cap   = size
     };
 
-    memcpy(p, &a, sizeof a);
-
-    return (struct arena*)p;
+    return (arena_t*)a;
 }
 
 
