@@ -1,6 +1,6 @@
 
 CC := gcc
-CFLAGS := -ggdb -O0 -std=c99 -Wall -Wextra -Wpedantic
+CFLAGS := -g -O3 -std=c99 -Wall -Wextra -Wpedantic
 
 OBJS := obj/arena.o obj/alloc_backend.o
 
