@@ -6,11 +6,11 @@ OBJS := obj/arena.o obj/alloc_backend.o
 
 all : test/test_arena
 
-test/test_arena : src/test_arena.c obj/libarena.o | test
+test/test_arena : src/test_arena.c obj/libarena.a | test
 	$(CC) -o $@ $(CFLAGS) $^
 
-obj/libarena.o : obj/arena.o obj/alloc_backend.o | obj
-	ld -r -o $@ $^
+obj/libarena.a : obj/arena.o obj/alloc_backend.o | obj
+	ar cr $@ $^
 
 obj/%.o : src/%.c | obj
 	$(CC) -o $@ -c $(CFLAGS) $<
