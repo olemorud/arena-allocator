@@ -5,7 +5,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-#define ARENA_SIZE ((size_t)(128*sysconf(_SC_PAGE_SIZE)))
+#define ARENA_SIZE ((size_t)(128 * sysconf(_SC_PAGE_SIZE)))
 
 typedef unsigned char byte;
 
@@ -16,38 +16,36 @@ struct arena* arena_new()
 {
     size_t size = ARENA_SIZE;
 
-    byte *p = call_alloc_backend(size);
+    byte* p = call_alloc_backend(size);
 
     if (p == NULL)
         return NULL;
 
-    arena_t *a = (arena_t*)p;
+    arena_t* a = (arena_t*)p;
 
-    *a = (arena_t){
+    *a = (arena_t) {
         .begin = p + sizeof(struct arena),
-        .next  = p + sizeof(struct arena),
-        .cap   = size - sizeof(struct arena)
+        .next = p + sizeof(struct arena),
+        .cap = size - sizeof(struct arena)
     };
 
     return (arena_t*)a;
 }
 
-
 /*
  * Frees all memory in arena
  */
-void arena_reset(struct arena *a)
+void arena_reset(struct arena* a)
 {
     a->next = a->begin;
 }
 
-
 /*
  * Allocate new memory using arena
  */
-void* arena_alloc(struct arena *a, size_t len)
+void* arena_alloc(struct arena* a, size_t len)
 {
-    void *p = a->next;
+    void* p = a->next;
     a->next = (byte*)(a->next) + len;
 
     if ((byte*)(a->next) > (byte*)(a->begin) + a->cap) {
@@ -57,4 +55,3 @@ void* arena_alloc(struct arena *a, size_t len)
 
     return p;
 }
-

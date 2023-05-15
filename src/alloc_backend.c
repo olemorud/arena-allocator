@@ -13,15 +13,14 @@
  */
 void* call_alloc_backend(size_t size)
 {
-    void *p = mmap(
-            NULL,
-            size,
-            PROT_READ | PROT_WRITE, 
-            MAP_ANONYMOUS | MAP_PRIVATE,
-            -1, /* man mmap(2): "[...], some implementations require fd to be
-                   -1 if MAP_ANONYMOUS is specified [...]" */
-            0
-    );
+    void* p = mmap(
+        NULL,
+        size,
+        PROT_READ | PROT_WRITE,
+        MAP_ANONYMOUS | MAP_PRIVATE,
+        -1, /* man mmap(2): "[...], some implementations require fd to be
+               -1 if MAP_ANONYMOUS is specified [...]" */
+        0);
 
     if (p == MAP_FAILED)
         return NULL;
