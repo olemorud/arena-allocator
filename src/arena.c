@@ -7,6 +7,7 @@
 
 #define ARENA_SIZE ((size_t)(128*sysconf(_SC_PAGE_SIZE)))
 
+typedef unsigned char byte;
 
 /*
  * Allocates and returns new arena
@@ -15,7 +16,7 @@ struct arena* arena_new()
 {
     size_t size = ARENA_SIZE;
 
-    unsigned char *p = call_alloc_backend(size);
+    byte *p = call_alloc_backend(size);
 
     if (p == NULL)
         return NULL;
@@ -25,7 +26,7 @@ struct arena* arena_new()
     *a = (arena_t){
         .begin = p + sizeof(struct arena),
         .next  = p + sizeof(struct arena),
-        .cap   = size
+        .cap   = size - sizeof(struct arena)
     };
 
     return (arena_t*)a;
@@ -47,9 +48,9 @@ void arena_reset(struct arena *a)
 void* arena_alloc(struct arena *a, size_t len)
 {
     void *p = a->next;
-    a->next += len;
+    a->next = (byte*)(a->next) + len;
 
-    if (a->next - a->begin >= a->cap) {
+    if ((byte*)(a->next) > (byte*)(a->begin) + a->cap) {
         errno = ENOMEM;
         return NULL;
     }
