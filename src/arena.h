@@ -5,10 +5,10 @@
 #include <stddef.h> // ptrdiff_t
 
 typedef struct arena {
-    unsigned char *begin,
-                  *next;
-    ptrdiff_t cap;
-} arena_t;
+    void *begin,
+         *next;
+    size_t cap;
+} __attribute__((aligned(sizeof(void*)))) arena_t;
 
 arena_t* arena_new();
 void arena_reset(arena_t *a);
