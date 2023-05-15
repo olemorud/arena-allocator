@@ -2,29 +2,47 @@
 CC := gcc
 CFLAGS := -g -O3 -std=c2x -Wall -Wextra -Wpedantic -Werror
 
-OBJS := obj/arena.o obj/alloc_backend.o
+BUILD_DIR := build
+BIN_DIR := lib
+TEST_DIR := test
 
-all : test/test_arena
+OBJS := $(BUILD_DIR)/arena.o $(BUILD_DIR)/alloc_backend.o
+FPIC_OBJS := $(BUILD_DIR)/fpic/arena.o $(BUILD_DIR)/fpic/alloc_backend.o
 
-test/test_arena : src/test_arena.c obj/libarena.a | test
+static : $(BIN_DIR)/libarena.a
+
+dynamic : $(BIN_DIR)/libarena.so
+
+tests : test/test_arena
+
+$(TEST_DIR)/test_arena : src/test_arena.c $(BIN_DIR)/libarena.a | $(TEST_DIR)
 	$(CC) -o $@ $(CFLAGS) $^
 
-obj/libarena.a : obj/arena.o obj/alloc_backend.o | obj
+$(BIN_DIR)/libarena.a : $(OBJS) | $(BIN_DIR)
 	ar cr $@ $^
 
-obj/%.o : src/%.c | obj
+$(BIN_DIR)/libarena.so : $(FPIC_OBJS) | $(BIN_DIR)
+	$(CC) -shared -o $@ $^
+
+$(BUILD_DIR)/%.o : src/%.c | $(BUILD_DIR)
 	$(CC) -o $@ -c $(CFLAGS) $<
 
-obj:
+$(BUILD_DIR)/fpic/%.o : src/%.c  | $(BUILD_DIR)/fpic
+	$(CC) -o $@ -c -fPIC $(CFLAGS) $<
+
+$(BUILD_DIR):
 	mkdir -p $@
 
-bin:
+$(BUILD_DIR)/fpic:
 	mkdir -p $@
 
-test:
+$(BIN_DIR) :
+	mkdir -p $@
+
+$(TEST_DIR) :
 	mkdir -p $@
 
 clean:
-	rm -rf obj bin test
+	rm -rf $(BUILD_DIR) $(BIN_DIR) $(TEST_DIR)
 
-.PHONY: clean obj test bin all
+.PHONY: clean $(BUILD_DIR) test bin all
