@@ -1,6 +1,6 @@
 
 CC := gcc
-CFLAGS := -g -O3 -std=c2x -Wall -Wextra -Wpedantic -Werror
+CFLAGS := -g -O3 -std=c2x -Wall -Wextra -Wpedantic -Werror -Iinclude
 
 BUILD_DIR := build
 BIN_DIR := lib

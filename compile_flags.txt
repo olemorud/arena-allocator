@@ -2,3 +2,4 @@
 -Wextra
 -Wpedantic
 -std=c2x
+-Iinclude
