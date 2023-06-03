@@ -16,5 +16,6 @@ void arena_reset(arena_t* a);
 void* arena_alloc(arena_t* a, size_t len);
 void* arena_calloc(arena_t* a, size_t nmemb, size_t size);
 void* arena_realloc_tail(arena_t* a, size_t len);
+void arena_delete(arena_t* a);
 
 #endif
