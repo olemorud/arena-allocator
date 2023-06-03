@@ -8,25 +8,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static struct arena* default_arena = NULL;
+static struct arena default_arena = { 0 };
 
 int main()
 {
     default_arena = arena_new();
 
-    if (default_arena == NULL) {
-        err(errno, "failed to allocate arena");
-    }
+    printf("\nAttempt to do allocations of 1 byte, cap is %zu, ", default_arena.cap);
 
-    printf("\nAttempt to do `arena->cap` allocations of 1 byte");
-
-    for (size_t i = 0; i < default_arena->cap; i++) {
-        char* c = arena_alloc(default_arena, 1);
+    size_t i;
+    for (i = 0; default_arena.next < default_arena.cap; i++) {
+        char* c = arena_alloc(&default_arena, 1);
         *c = i & 0xff;
         if (c == NULL) {
             err(EXIT_FAILURE, "failed to allocate memory");
         }
     }
+    printf("did %zu allocations", i);
 
     printf("\n    OK");
 
