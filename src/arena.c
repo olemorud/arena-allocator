@@ -15,7 +15,7 @@
 
 #define ARENA_SIZE ((size_t)(1 * sysconf(_SC_PAGE_SIZE)))
 
-struct arena arena_new()
+arena_t arena_new()
 {
     arena_t a = {
         .next = 0,
@@ -42,13 +42,13 @@ void _arena_realloc_or_panic(arena_t* a, size_t len)
     a->cap = len;
 }
 
-void arena_reset(struct arena* a)
+void arena_reset(arena_t* a)
 {
     a->next = 0;
     a->prev = 0;
 }
 
-void* arena_alloc(struct arena* a, size_t len)
+void* arena_alloc(arena_t* a, size_t len)
 {
     // align len to machine word size
     len = (len + WORD_SIZE - 1) & ~(WORD_SIZE - 1);
@@ -60,20 +60,26 @@ void* arena_alloc(struct arena* a, size_t len)
     if (a->next > a->cap)
         _arena_realloc_or_panic(a, a->cap * 2);
 
-
     return (byte_t*)(a->data) + a->prev;
 }
 
-void* arena_calloc(struct arena* a, size_t nmemb, size_t size)
+void* arena_calloc(arena_t* a, size_t nmemb, size_t size)
 {
     void* p = arena_alloc(a, nmemb * size);
     memset((byte_t*)(a->data) + a->prev, 0, size);
     return p;
 }
 
-void* arena_realloc_tail(struct arena* a, size_t len)
+void* arena_realloc_tail(arena_t* a, size_t len)
 {
     a->next = a->prev;
 
     return arena_alloc(a, len);
+}
+
+void arena_delete(arena_t* a)
+{
+    free(a->data);
+    arena_reset(a);
+    a->data = NULL;
 }
