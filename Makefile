@@ -6,8 +6,8 @@ BUILD_DIR := build
 BIN_DIR := lib
 TEST_DIR := test
 
-OBJS := $(BUILD_DIR)/arena.o $(BUILD_DIR)/alloc_backend.o
-FPIC_OBJS := $(BUILD_DIR)/fpic/arena.o $(BUILD_DIR)/fpic/alloc_backend.o
+OBJS := $(BUILD_DIR)/arena.o
+FPIC_OBJS := $(BUILD_DIR)/fpic/arena.o
 
 static : $(BIN_DIR)/libarena.a
 
