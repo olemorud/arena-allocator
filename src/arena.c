@@ -23,13 +23,13 @@ struct arena* arena_new()
 
     arena_t* a = (arena_t*)p;
 
-    *a = (arena_t) {
-        .begin = p + sizeof(struct arena),
-        .next = p + sizeof(struct arena),
-        .cap = size - sizeof(struct arena)
-    };
+    void* beg = p + sizeof(struct arena);
+    a->begin = beg;
+    a->next = beg;
+    a->prev = beg;
+    a->cap = size - sizeof(struct arena);
 
-    return (arena_t*)a;
+    return a;
 }
 
 /*
@@ -38,6 +38,7 @@ struct arena* arena_new()
 void arena_reset(struct arena* a)
 {
     a->next = a->begin;
+    a->prev = a->begin;
 }
 
 /*
@@ -46,12 +47,31 @@ void arena_reset(struct arena* a)
 void* arena_alloc(struct arena* a, size_t len)
 {
     void* p = a->next;
-    a->next = (byte*)(a->next) + len;
 
-    if ((byte*)(a->next) > (byte*)(a->begin) + a->cap) {
+    if ((byte*)p + len > (byte*)(a->begin) + a->cap) {
         errno = ENOMEM;
         return NULL;
     }
 
+    a->next = (byte*)(a->next) + len;
+    a->prev = p;
+
     return p;
+}
+
+/*
+ * Reallocate last block in arena
+ */
+void* arena_realloc_tail(struct arena* a, size_t len)
+{
+    void* p = a->prev;
+
+    if ((byte*)p + len > (byte*)(a->begin) + a->cap) {
+        errno = ENOMEM;
+        return NULL;
+    }
+
+    a->next = (byte*)p + len;
+
+    return a->prev;
 }
