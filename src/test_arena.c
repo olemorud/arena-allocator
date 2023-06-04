@@ -7,26 +7,36 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-static struct arena default_arena = { 0 };
+#include <unistd.h>
 
 int main()
 {
-    default_arena = arena_new();
+    arena_t default_arena = arena_new();
 
-    printf("\nAttempt to do allocations of 1 byte, cap is %zu, ", default_arena.cap);
+    printf("\nAttempting to allocate and write to 1 byte 1024 times");
+    for (size_t i = 0; i < 1024; i++) {
+        char* c = arena_alloc(&default_arena, sizeof *c);
 
-    size_t i;
-    for (i = 0; default_arena.next < default_arena.cap; i++) {
-        char* c = arena_alloc(&default_arena, 1);
-        *c = i & 0xff;
-        if (c == NULL) {
+        if (c == NULL)
             err(EXIT_FAILURE, "failed to allocate memory");
-        }
-    }
-    printf("did %zu allocations", i);
 
-    printf("\n    OK");
+        *c = i & 0xFF;
+    }
+    printf("\n    OK!\n");
+
+    printf("\nAttempting to allocate and write to `_SC_PAGESIZE+1` bytes");
+    size_t psz = sysconf(_SC_PAGESIZE) + 1;
+    char* c = arena_alloc(&default_arena, psz);
+
+    if (c == NULL)
+        err(EXIT_FAILURE, "failed to allocate memory");
+
+    for (size_t i = 0; i < psz; i++)
+        *c = i & 0xFF;
+
+    printf("\n    OK!\n");
+
+    arena_delete(&default_arena);
 
     return 0;
 }

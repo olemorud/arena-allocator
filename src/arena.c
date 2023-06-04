@@ -7,79 +7,147 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <stdio.h>
-
 // (sizeof(intptr_t) isn't guaranteed to be the machine word size but on most
 // compilers it is)
-#define WORD_SIZE (sizeof(intptr_t))
+#define SYS_PAGE_SIZE ((size_t)sysconf(_SC_PAGE_SIZE))
 
-#define ARENA_SIZE ((size_t)(1 * sysconf(_SC_PAGE_SIZE)))
+#define BIG_PAGE (SYS_PAGE_SIZE + 1)
 
-arena_t arena_new()
+typedef unsigned char byte_t;
+
+struct page {
+    void* data;
+    size_t offset, prev_offset;
+    struct page* next;
+};
+
+// linked list terminology:
+// https://web.archive.org/web/20230604145332/https://i.stack.imgur.com/2FbXf.png
+
+arena_t arena_new(void)
 {
-    arena_t a = {
-        .next = 0,
-        .prev = 0,
-        .cap = ARENA_SIZE,
-        .data = malloc(ARENA_SIZE)
-    };
+    struct page* p = malloc(sizeof *p);
 
-    if (a.data == NULL)
+    if (p == NULL)
         exit(errno);
+
+    p->next = NULL;
+    p->offset = 0;
+    p->prev_offset = 0;
+    p->data = malloc(SYS_PAGE_SIZE);
+
+    if (p->data == NULL)
+        exit(errno);
+
+    arena_t a = {
+        .head = p,
+        .last = p,
+    };
 
     return a;
 }
 
-void _arena_realloc_or_panic(arena_t* a, size_t len)
+void _arena_new_page(arena_t* a, size_t size)
 {
-    // TODO: gracefully recover.
-    //  although unlikely to be recoverable in most use cases
-    a->data = realloc(a->data, len);
+    /* potentially reuse page from previously
+       reset arena */
+    if (a->head->next != NULL) {
+        a->head = a->head->next;
+        a->head->offset = 0;
+        a->head->prev_offset = 0;
+        return;
+    }
 
-    if (a->data == NULL)
+    void* tmp = calloc(1, sizeof *(a->head->next));
+
+    if (tmp == NULL)
         exit(errno);
 
-    a->cap = len;
+    a->head->next = tmp;
+
+    a->head = a->head->next;
+    a->head->data = malloc(size);
+
+    if (a->head->data == NULL)
+        exit(errno);
 }
 
 void arena_reset(arena_t* a)
 {
-    a->next = 0;
-    a->prev = 0;
+    a->head = a->last;
+    a->head->offset = 0;
+    a->head->prev_offset = 0;
 }
 
-void* arena_alloc(arena_t* a, size_t len)
+void* _arena_big_alloc(arena_t* a, size_t size)
 {
-    // align len to machine word size
-    len = (len + WORD_SIZE - 1) & ~(WORD_SIZE - 1);
-    fprintf(stderr, "allocating %zu bytes\n", len);
+    _arena_new_page(a, size);
+    a->head->offset = BIG_PAGE;
+    a->head->prev_offset = BIG_PAGE;
 
-    a->prev = a->next;
-    a->next += len;
+    return a->head->data;
+}
 
-    if (a->next > a->cap)
-        _arena_realloc_or_panic(a, a->cap * 2);
+void* arena_alloc(arena_t* a, size_t size)
+{
+    if (size > SYS_PAGE_SIZE)
+        return _arena_big_alloc(a, size);
 
-    return (byte_t*)(a->data) + a->prev;
+    // align size to machine word size
+    size = (size + _WORD_SIZE - 1) & ~(_WORD_SIZE - 1);
+
+    if (a->head->offset > SYS_PAGE_SIZE - size) {
+        _arena_new_page(a, SYS_PAGE_SIZE);
+        return arena_alloc(a, size);
+    }
+
+    a->head->prev_offset = a->head->offset;
+    a->head->offset += size;
+
+    return (byte_t*)(a->head->data) + a->head->prev_offset;
 }
 
 void* arena_calloc(arena_t* a, size_t nmemb, size_t size)
 {
     void* p = arena_alloc(a, nmemb * size);
-    memset((byte_t*)(a->data) + a->prev, 0, size);
+    memset(p, 0, nmemb * size);
     return p;
 }
 
 void* arena_realloc_tail(arena_t* a, size_t len)
 {
-    a->next = a->prev;
+    if (a->head->offset == BIG_PAGE) {
+        void* tmp = realloc(a->head->data, len);
+
+        if (tmp == NULL)
+            exit(errno);
+
+        a->head->data = tmp;
+
+        return tmp;
+    }
+
+    a->head->offset = a->head->prev_offset;
 
     return arena_alloc(a, len);
 }
 
 void arena_delete(arena_t* a)
 {
-    free(a->data);
-    arena_reset(a);
-    a->data = NULL;
+    struct page* p = a->last;
+
+    while (p != NULL) {
+        struct page* next = p->next;
+        free(p->data);
+        free(p);
+        p = next;
+    }
+}
+
+// included for completeness
+void arena_free(arena_t* a, void* p)
+{
+    (void)p;
+    (void)a;
+    return;
 }
