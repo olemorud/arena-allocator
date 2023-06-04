@@ -16,7 +16,7 @@ dynamic : $(BIN_DIR)/libarena.so
 tests : test/test_arena
 
 $(TEST_DIR)/test_arena : src/test_arena.c $(BIN_DIR)/libarena.a | $(TEST_DIR)
-	$(CC) -o $@ $(CFLAGS) $^
+	$(CC) -o $@ -O0 -ggdb $^
 
 $(BIN_DIR)/libarena.a : $(OBJS) | $(BIN_DIR)
 	ar cr $@ $^
