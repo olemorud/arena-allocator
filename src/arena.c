@@ -7,8 +7,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <stdio.h>
-
 // (sizeof(intptr_t) isn't guaranteed to be the machine word size but on most
 // compilers it is)
 #define WORD_SIZE (sizeof(intptr_t))
@@ -52,7 +50,6 @@ void* arena_alloc(arena_t* a, size_t len)
 {
     // align len to machine word size
     len = (len + WORD_SIZE - 1) & ~(WORD_SIZE - 1);
-    fprintf(stderr, "allocating %zu bytes\n", len);
 
     a->prev = a->next;
     a->next += len;
