@@ -11,6 +11,8 @@
 // compilers it is)
 #define SYS_PAGE_SIZE ((size_t)sysconf(_SC_PAGE_SIZE))
 
+#define BIG_PAGE (SYS_PAGE_SIZE + 1)
+
 typedef unsigned char byte_t;
 
 struct page {
@@ -24,7 +26,7 @@ struct page {
 
 arena_t arena_new(void)
 {
-    struct page* p = malloc(sizeof(struct page));
+    struct page* p = malloc(sizeof *p);
 
     if (p == NULL)
         exit(errno);
@@ -47,6 +49,8 @@ arena_t arena_new(void)
 
 void _arena_new_page(arena_t* a, size_t size)
 {
+    /* potentially reuse page from previously
+       reset arena */
     if (a->head->next != NULL) {
         a->head = a->head->next;
         a->head->offset = 0;
@@ -54,15 +58,12 @@ void _arena_new_page(arena_t* a, size_t size)
         return;
     }
 
-    a->head->next = calloc(1, sizeof *(a->head));
+    a->head->next = calloc(1, sizeof *(a->head->next));
 
     if (a->head->next == NULL)
         exit(errno);
 
     a->head = a->head->next;
-    a->head->offset = 0;
-    a->head->prev_offset = 0;
-    a->head->next = NULL;
     a->head->data = malloc(size);
 
     if (a->head->data == NULL)
@@ -79,27 +80,27 @@ void arena_reset(arena_t* a)
 void* _arena_big_alloc(arena_t* a, size_t size)
 {
     _arena_new_page(a, size);
-    a->head->offset = SIZE_MAX;
-    a->head->prev_offset = SIZE_MAX;
+    a->head->offset = BIG_PAGE;
+    a->head->prev_offset = BIG_PAGE;
 
     return a->head->data;
 }
 
 void* arena_alloc(arena_t* a, size_t size)
 {
-    // align size to machine word size
-    size = (size + _WORD_SIZE - 1) & ~(_WORD_SIZE - 1);
-
     if (size > SYS_PAGE_SIZE)
         return _arena_big_alloc(a, size);
 
-    a->head->prev_offset = a->head->offset;
-    a->head->offset += size;
+    // align size to machine word size
+    size = (size + _WORD_SIZE - 1) & ~(_WORD_SIZE - 1);
 
-    if (a->head->offset > SYS_PAGE_SIZE) {
+    if (a->head->offset > SYS_PAGE_SIZE - size) {
         _arena_new_page(a, SYS_PAGE_SIZE);
         return arena_alloc(a, size);
     }
+
+    a->head->prev_offset = a->head->offset;
+    a->head->offset += size;
 
     return (byte_t*)(a->head->data) + a->head->prev_offset;
 }
@@ -107,12 +108,21 @@ void* arena_alloc(arena_t* a, size_t size)
 void* arena_calloc(arena_t* a, size_t nmemb, size_t size)
 {
     void* p = arena_alloc(a, nmemb * size);
-    memset((byte_t*)p, 0, size);
+    memset(p, 0, nmemb * size);
     return p;
 }
 
 void* arena_realloc_tail(arena_t* a, size_t len)
 {
+    if (a->head->offset == BIG_PAGE) {
+        a->head->data = realloc(a->head->data, len);
+
+        if (a->head->data == NULL)
+            exit(errno);
+
+        return a->head->data;
+    }
+
     a->head->offset = a->head->prev_offset;
 
     return arena_alloc(a, len);
