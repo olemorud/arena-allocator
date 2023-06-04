@@ -83,3 +83,11 @@ void arena_delete(arena_t* a)
     arena_reset(a);
     a->data = NULL;
 }
+
+// included for completeness
+void arena_free(arena_t* a, void* p)
+{
+    (void)p;
+    (void)a;
+    return;
+}
