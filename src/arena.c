@@ -58,10 +58,12 @@ void _arena_new_page(arena_t* a, size_t size)
         return;
     }
 
-    a->head->next = calloc(1, sizeof *(a->head->next));
+    void* tmp = calloc(1, sizeof *(a->head->next));
 
-    if (a->head->next == NULL)
+    if (tmp == NULL)
         exit(errno);
+
+    a->head->next = tmp;
 
     a->head = a->head->next;
     a->head->data = malloc(size);
@@ -115,12 +117,14 @@ void* arena_calloc(arena_t* a, size_t nmemb, size_t size)
 void* arena_realloc_tail(arena_t* a, size_t len)
 {
     if (a->head->offset == BIG_PAGE) {
-        a->head->data = realloc(a->head->data, len);
+        void* tmp = realloc(a->head->data, len);
 
-        if (a->head->data == NULL)
+        if (tmp == NULL)
             exit(errno);
 
-        return a->head->data;
+        a->head->data = tmp;
+
+        return tmp;
     }
 
     a->head->offset = a->head->prev_offset;

@@ -17,10 +17,10 @@ int main()
     for (size_t i = 0; i < 1024; i++) {
         char* c = arena_alloc(&default_arena, sizeof *c);
 
-        *c = i & 0xFF;
-
         if (c == NULL)
             err(EXIT_FAILURE, "failed to allocate memory");
+
+        *c = i & 0xFF;
     }
     printf("\n    OK!\n");
 
@@ -35,6 +35,8 @@ int main()
         *c = i & 0xFF;
 
     printf("\n    OK!\n");
+
+    arena_delete(&default_arena);
 
     return 0;
 }
