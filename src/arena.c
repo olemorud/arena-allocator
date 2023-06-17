@@ -116,6 +116,11 @@ void* arena_calloc(arena_t* a, size_t nmemb, size_t size)
 
 void* arena_realloc_tail(arena_t* a, size_t len)
 {
+    if (len <= (a->head->offset - a->head->prev_offset)) {
+        a->head->offset = a->head->prev_offset + len;
+        return (byte_t*)(a->head->data) + a->head->prev_offset;
+    }
+
     if (a->head->offset == BIG_PAGE) {
         void* tmp = realloc(a->head->data, len);
 
