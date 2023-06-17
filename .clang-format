@@ -1,2 +1,10 @@
 
 BasedOnStyle: WebKit
+
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignEscapedNewlines: Left
+AlignOperands: true
+AlignTrailingComments: false
+PointerAlignment: Right

@@ -1,153 +1,81 @@
 
 #include "arena.h"
 
-#include <errno.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
+#include <errno.h> // errno
+#include <stdbool.h>
+#include <stdio.h> // fprintf
+#include <string.h> // strerror
+#include <sys/mman.h>
 #include <unistd.h>
 
-// (sizeof(intptr_t) isn't guaranteed to be the machine word size but on most
-// compilers it is)
-#define SYS_PAGE_SIZE ((size_t)sysconf(_SC_PAGE_SIZE))
+#define ARENA_ALIGN (sizeof(void *))
+#define ARENA_GROW_FACTOR 2UL
 
-#define BIG_PAGE (SYS_PAGE_SIZE + 1)
+#ifndef NDEBUG
+#define arena_err(msg) \
+    fprintf(stderr, "%s (%s:%d): %s\n", msg, __func__, __LINE__, strerror(errno))
+#else
+#define arena_err(msg)
+#endif
 
-typedef unsigned char byte_t;
-
-struct page {
-    void* data;
-    size_t offset, prev_offset;
-    struct page* next;
-};
-
-// linked list terminology:
-// https://web.archive.org/web/20230604145332/https://i.stack.imgur.com/2FbXf.png
-
-arena_t arena_new(void)
+static bool arena_grow(struct arena *a)
 {
-    struct page* p = malloc(sizeof *p);
+    int ok = mprotect(
+        a->data + a->cap,
+        a->cap * ARENA_GROW_FACTOR,
+        PROT_READ | PROT_WRITE);
 
+    if (ok == -1) {
+        arena_err("mprotect");
+        return false;
+    }
+
+    a->cap *= ARENA_GROW_FACTOR;
+
+    return true;
+}
+
+inline void arena_reset(arena_t *a)
+{
+    a->size = 0;
+}
+
+arena_t arena_new()
+{
+    size_t size = sysconf(_SC_PAGE_SIZE);
+    void  *p    = mmap(NULL, 1UL << 40UL, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    mprotect(p, size, PROT_READ | PROT_WRITE);
+    if (p == MAP_FAILED)
+        arena_err("mmap");
+
+    return arena_attach(p, size);
+}
+
+void *arena_alloc(arena_t *a, size_t size)
+{
+    size = (size + ARENA_ALIGN - 1) & ~(ARENA_ALIGN - 1); // align
+
+    void *p = a->data + a->size;
+    a->size += size;
+    if (a->size > a->cap) {
+        if (!arena_grow(a))
+            return NULL;
+    }
+    return p;
+}
+
+void *arena_calloc(arena_t *a, size_t nmemb, size_t size)
+{
+    void *p = arena_alloc(a, nmemb * size);
     if (p == NULL)
-        exit(errno);
-
-    p->next = NULL;
-    p->offset = 0;
-    p->prev_offset = 0;
-    p->data = malloc(SYS_PAGE_SIZE);
-
-    if (p->data == NULL)
-        exit(errno);
-
-    arena_t a = {
-        .head = p,
-        .last = p,
-    };
-
-    return a;
-}
-
-void _arena_new_page(arena_t* a, size_t size)
-{
-    /* potentially reuse page from previously
-       reset arena */
-    if (a->head->next != NULL) {
-        a->head = a->head->next;
-        a->head->offset = 0;
-        a->head->prev_offset = 0;
-        return;
-    }
-
-    void* tmp = calloc(1, sizeof *(a->head->next));
-
-    if (tmp == NULL)
-        exit(errno);
-
-    a->head->next = tmp;
-
-    a->head = a->head->next;
-    a->head->data = malloc(size);
-
-    if (a->head->data == NULL)
-        exit(errno);
-}
-
-void arena_reset(arena_t* a)
-{
-    a->head = a->last;
-    a->head->offset = 0;
-    a->head->prev_offset = 0;
-}
-
-void* _arena_big_alloc(arena_t* a, size_t size)
-{
-    _arena_new_page(a, size);
-    a->head->offset = BIG_PAGE;
-    a->head->prev_offset = BIG_PAGE;
-
-    return a->head->data;
-}
-
-void* arena_alloc(arena_t* a, size_t size)
-{
-    if (size > SYS_PAGE_SIZE)
-        return _arena_big_alloc(a, size);
-
-    // align size to machine word size
-    size = (size + _WORD_SIZE - 1) & ~(_WORD_SIZE - 1);
-
-    if (a->head->offset > SYS_PAGE_SIZE - size) {
-        _arena_new_page(a, SYS_PAGE_SIZE);
-        return arena_alloc(a, size);
-    }
-
-    a->head->prev_offset = a->head->offset;
-    a->head->offset += size;
-
-    return (byte_t*)(a->head->data) + a->head->prev_offset;
-}
-
-void* arena_calloc(arena_t* a, size_t nmemb, size_t size)
-{
-    void* p = arena_alloc(a, nmemb * size);
+        return p;
     memset(p, 0, nmemb * size);
     return p;
 }
 
-void* arena_realloc_tail(arena_t* a, size_t len)
+void arena_delete(struct arena *a)
 {
-    if (a->head->offset == BIG_PAGE) {
-        void* tmp = realloc(a->head->data, len);
-
-        if (tmp == NULL)
-            exit(errno);
-
-        a->head->data = tmp;
-
-        return tmp;
-    }
-
-    a->head->offset = a->head->prev_offset;
-
-    return arena_alloc(a, len);
-}
-
-void arena_delete(arena_t* a)
-{
-    struct page* p = a->last;
-
-    while (p != NULL) {
-        struct page* next = p->next;
-        free(p->data);
-        free(p);
-        p = next;
-    }
-}
-
-// included for completeness
-void arena_free(arena_t* a, void* p)
-{
-    (void)p;
-    (void)a;
-    return;
+    munmap(a->data, a->cap);
+    a->cap  = -1;
+    a->size = -1;
 }

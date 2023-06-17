@@ -3,3 +3,4 @@ test/
 *.o
 *.a
 *.so
+build/
