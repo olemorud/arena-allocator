@@ -1,5 +1,6 @@
 
 #include "arena.h"
+#include "knob.h"
 
 #include <errno.h> // errno
 #include <stdbool.h>
@@ -8,9 +9,6 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#define ARENA_ALIGN (sizeof(void *))
-#define ARENA_GROW_FACTOR 2UL
-#define ARENA_OVERCOMMIT_SIZE (1UL << 40UL)
 
 #ifndef NDEBUG
 #define arena_err(msg) \
@@ -21,6 +19,10 @@
 
 static bool arena_grow(struct arena *a, size_t min_size)
 {
+    if (!(a->flags & ARENA_GROW)) {
+        return false;
+    }
+
     size_t new_cap = a->cap * 2;
     while (new_cap < min_size) {
         new_cap *= 2;
@@ -51,8 +53,7 @@ arena_t arena_new()
         goto sysconf_failed;
     }
 
-    void *p = mmap(NULL, ARENA_OVERCOMMIT_SIZE, PROT_NONE,
-            MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    void *p = mmap(NULL, KNOB_MMAP_SIZE, PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     if (p == MAP_FAILED) {
         arena_err("mmap");
         goto mmap_failed;
@@ -64,10 +65,20 @@ arena_t arena_new()
         goto mprotect_failed;
     }
 
-    return arena_attach(p, size);
-    
+    struct arena a = {
+        .data = p,
+        .size = 0,
+        .cap = size,
+        .flags = ARENA_GROW,
+    };
+
+    return a;
+
 mprotect_failed:
-    munmap(p, ARENA_OVERCOMMIT_SIZE);
+    ok = munmap(p, KNOB_MMAP_SIZE);
+    if (ok == -1) {
+        arena_err("munmap");
+    }
 mmap_failed:
 sysconf_failed:
     return (arena_t) { 0 };
@@ -75,14 +86,17 @@ sysconf_failed:
 
 void* arena_alloc(arena_t *a, size_t size)
 {
-    size = (size + ARENA_ALIGN - 1) & ~(ARENA_ALIGN - 1); // align
+    // align
+    if (!(a->flags & ARENA_DONTALIGN)) {
+        size = (size + KNOB_ALIGNMENT - 1) & ~(KNOB_ALIGNMENT - 1);
+    }
 
     void *p = a->data + a->size;
-    a->size += size;
-    if (a->size > a->cap) {
+    if (a->size + size > a->cap) {
         if (!arena_grow(a, a->size))
             return NULL;
     }
+    a->size += size;
     return p;
 }
 
@@ -97,6 +111,9 @@ void* arena_calloc(arena_t *a, size_t nmemb, size_t size)
 
 int arena_delete(struct arena *a)
 {
+    if (!(a->flags & ARENA_GROW)) {
+        return -1;
+    }
     int ok = munmap(a->data, a->cap);
     if (ok == -1) {
         arena_err("munmap");

@@ -1,15 +1,22 @@
 
+#pragma once
 #ifndef ARENA_H
 #define ARENA_H
 
 #include <stdbool.h>
-#include <stddef.h> // size_t
+#include <stddef.h>
+
+// flags = 0 should be considered the default
+enum arena_flags {
+    ARENA_GROW      = 1 << 0,
+    ARENA_DONTALIGN = 1 << 1,
+};
 
 typedef struct arena {
-    char  *data;
+    char*  data;
     size_t size;
     size_t cap;
-    bool   grow;
+    char   flags;
 } arena_t;
 
 /**
@@ -32,7 +39,7 @@ int arena_delete(arena_t *a);
  */
 static inline arena_t arena_attach(void *ptr, size_t size)
 {
-    return (arena_t) { .data = ptr, .size = 0, .cap = size, .grow = false };
+    return (arena_t) { .data = ptr, .size = 0, .cap = size, .flags = 0 };
 }
 
 /**
