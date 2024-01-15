@@ -15,14 +15,16 @@ typedef struct arena {
 /**
  * Allocate a new arena.
  * The underlying memory is allocated with mmap.
+ * Errors can be checked with `arena_new_failed()`
  */
 arena_t arena_new();
 
 /**
  * Delete memory mapped for arena.
  * Should only be used with arenas from arena_new().
+ * Returns 0 on success, -1 on failure
  */
-void arena_delete(arena_t *a);
+int arena_delete(arena_t *a);
 
 /**
  * Attach an arena to an existing memory region.
@@ -42,9 +44,20 @@ static inline void *arena_detatch(arena_t arena)
 }
 
 /**
+ * Returns true if creating new arena failed
+ */
+static inline bool arena_new_failed(arena_t *a)
+{
+    return a->data == NULL;
+}
+
+/**
  * Reset an arena.
  */
-void arena_reset(arena_t *a);
+static inline void arena_reset(arena_t *a)
+{
+    a->size = 0;
+}
 
 /**
  * Allocate memory from an arena.
