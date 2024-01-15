@@ -1,4 +1,6 @@
 
-add_executable(arena_allocator_test test_arena.c ../src/arena.c)
+include_directories(${CMAKE_SOURCE_DIR}/include)
 
-target_include_directories(arena_allocator_test PUBLIC ../include)
+add_executable(test_arena test_arena.c)
+
+target_link_libraries(test_arena arena)

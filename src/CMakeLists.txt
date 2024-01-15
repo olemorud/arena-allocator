@@ -1,4 +1,4 @@
 
-add_library(arena_allocator arena.c)
+add_library(arena arena.c)
 
-target_include_directories(arena_allocator PUBLIC ../include)
+target_include_directories(arena PUBLIC ../include)

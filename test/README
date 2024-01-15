@@ -1,0 +1,6 @@
+
+run compiled test in conjunction with other tools, e.g.
+
+/usr/bin/time strace -e trace=\!write ./test/test_arena
+
+ 
