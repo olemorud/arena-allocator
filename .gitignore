@@ -1,5 +1,4 @@
 obj/
-test/
 *.o
 *.a
 *.so
