@@ -98,6 +98,8 @@ int main()
             fprintf(stderr, "arena_delete was supposed to fail, but didn't\n");
             exit(EXIT_FAILURE);
         }
+
+        free(arena_detatch(a));
     }
 
     

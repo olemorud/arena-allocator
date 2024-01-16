@@ -114,7 +114,7 @@ int arena_delete(struct arena *a)
     if (!(a->flags & ARENA_GROW)) {
         return -1;
     }
-    int ok = munmap(a->data, a->cap);
+    int ok = munmap(a->data, KNOB_MMAP_SIZE);
     if (ok == -1) {
         arena_err("munmap");
         return -1;
