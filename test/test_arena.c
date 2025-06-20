@@ -115,7 +115,7 @@ int main()
         pid_t p;
         switch (p = fork()) {
         case -1: /* error */
-            perror(fork());
+            perror("fork()");
             exit(EXIT_FAILURE);
 
         case 0: /* child */
